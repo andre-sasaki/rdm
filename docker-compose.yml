@@ -1,6 +1,6 @@
 services:
   rdm:
-    image: ghcr.io/andre-sasaki/rdm:latest
+    build: .
     container_name: rdm
     restart: unless-stopped
     ports:
