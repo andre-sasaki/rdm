@@ -1,0 +1,7 @@
+services:
+  rdm:
+    build: .
+    container_name: rdm
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
