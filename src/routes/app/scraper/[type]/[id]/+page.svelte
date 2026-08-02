@@ -10,7 +10,7 @@
 	import * as Select from '$lib/components/ui/select';
 	import * as Sheet from '$lib/components/ui/sheet';
 	import { formatDate } from '$lib/app/helpers';
-	import { PUBLIC_TORRENTIO_BASE_URI } from '$env/static/public';
+
 	import StreamActions from './stream-actions.svelte';
 	import ResultActions from './result-actions.svelte';
 	import TypeInfo from './type-info.svelte';
@@ -71,21 +71,26 @@
 			id = info.meta.imdb_id;
 		}
 
-		let appliedFilters = get(filters).join(',');
-		let otherFilters = `|${debridOptions}|realdebrid=${data.props.accessToken}`;
+		const params = new URLSearchParams({
+			id,
+			type: data.props.type,
+			filters: get(filters).join(','),
+			debridOptions
+		});
 
-		if (get(maxResultsPerQuality)) {
-			otherFilters += `|limit=${get(maxResultsPerQuality)}`;
+		const limitPerQuality = get(maxResultsPerQuality);
+		if (limitPerQuality) {
+			params.set('limitPerQuality', String(limitPerQuality));
 		}
 
-		const res = await fetch(
-			`${PUBLIC_TORRENTIO_BASE_URI}/qualityfilter=${appliedFilters}${otherFilters}/stream/${data.props.type}/${id}.json`
-		);
+		const res = await fetch(`/api/app/torrents/streams?${params}`);
+		const json = await res.json();
+		const streams = json.data;
 
 		if (data.props.type === 'movie') {
-			return res.json();
+			return streams;
 		} else {
-			torrentIoData = await res.json();
+			torrentIoData = streams;
 		}
 	}
 
