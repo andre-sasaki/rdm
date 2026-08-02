@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Select as SelectPrimitive } from "bits-ui";
 
-	type $$Props = SelectPrimitive.Props;
+	type $$Props = SelectPrimitive.Props<string | number>;
 
 	export let selected: $$Props["selected"] = undefined;
 	export let open: $$Props["open"] = undefined;

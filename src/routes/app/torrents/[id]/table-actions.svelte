@@ -3,8 +3,10 @@
 	import { Button } from '$lib/components/ui/button';
 	import { DotsHorizontal } from 'radix-icons-svelte';
 	import { toast } from 'svelte-sonner';
+	import { getMediaType } from '$lib/app/helpers';
 
 	export let link: string;
+	export let filename: string;
 
 	let unrestrictLink = async function unrestrictLinkData(link: string) {
 		const data = await fetch(`/api/app/unrestrict`, {
@@ -22,6 +24,36 @@
 		}
 		return resp.data.download;
 	};
+
+	async function sendToDownloadStation() {
+		const data = await fetch(`/api/app/unrestrict`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ link })
+		});
+		const resp = await data.json();
+		if (!resp.success) {
+			toast.error(`Error! ${resp.error}`);
+			return;
+		}
+
+		const type = getMediaType(filename) === 'tv' ? 'series' : 'movie';
+		const taskRes = await fetch(`/api/app/synology/addTask`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({ url: resp.data.download, type, title: filename })
+		});
+		const taskResp = await taskRes.json();
+		if (taskResp.success) {
+			toast.success('Sent to Download Station');
+		} else {
+			toast.error(`Error! ${taskResp.error}`);
+		}
+	}
 </script>
 
 <DropdownMenu.Root>
@@ -46,6 +78,8 @@
 			on:click={async () => {
 				navigator.clipboard.writeText(await unrestrictLink(link));
 			}}>Unrestrict & Copy Link</DropdownMenu.Item
+		>
+		<DropdownMenu.Item on:click={sendToDownloadStation}>Send to Download Station</DropdownMenu.Item
 		>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
