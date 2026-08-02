@@ -1,10 +1,12 @@
+# syntax=docker/dockerfile:1
 FROM node:18-alpine AS build
 WORKDIR /app
 
 RUN corepack enable && corepack prepare pnpm@8 --activate
 
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
+	pnpm install --frozen-lockfile
 
 COPY . .
 
@@ -20,7 +22,8 @@ ENV PUBLIC_BASE_AUTH_URI=$PUBLIC_BASE_AUTH_URI
 ENV PUBLIC_CLIENT_ID=$PUBLIC_CLIENT_ID
 ENV PUBLIC_TORRENTIO_BASE_URI=$PUBLIC_TORRENTIO_BASE_URI
 
-RUN pnpm run build
+RUN --mount=type=cache,id=vite-cache,target=/app/node_modules/.vite \
+	pnpm run build
 RUN pnpm prune --prod
 
 FROM node:18-alpine AS runtime

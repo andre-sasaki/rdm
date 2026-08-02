@@ -278,7 +278,10 @@
 										<Table.Cell>{removeFirstChar(torrentFile.path)}</Table.Cell>
 										<Table.Cell class="text-right">{convertBytes(torrentFile.bytes)}</Table.Cell>
 										<Table.Cell class="text-right">
-											<TableActions link={torrentInfo.data.links[i]} />
+											<TableActions
+												link={torrentInfo.data.links[i]}
+												filename={torrentInfo.data.filename}
+											/>
 										</Table.Cell>
 									</Table.Row>
 									{incrementSelectedFiles(torrentFile.id)}

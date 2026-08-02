@@ -173,7 +173,7 @@
 						{#each streams.streams as stream, i}
 							{#if i <= $limit}
 								<div
-									class:border-green-500={foundHashes.includes(getHash(stream.url))}
+									class:border-green-500={foundHashes.includes(getHash(stream.url) ?? '')}
 									class="w-full md:w-64 flex flex-col break-words gap-2 border rounded-md p-4 justify-between"
 								>
 									<div class="flex flex-col gap-2">
@@ -184,7 +184,12 @@
 											{/each}
 										</div>
 									</div>
-									<StreamActions url={stream.url} {addToRD} />
+									<StreamActions
+										url={stream.url}
+										{addToRD}
+										title={`${info.meta.name} (${info.meta.releaseInfo})`}
+										type="movie"
+									/>
 								</div>
 							{/if}
 						{/each}
@@ -287,7 +292,7 @@
 														{#each torrentIoData.streams as stream, i}
 															{#if i <= $limit}
 																<div
-																	class:border-green-500={foundHashes.includes(getHash(stream.url))}
+																	class:border-green-500={foundHashes.includes(getHash(stream.url) ?? '')}
 																	class="w-full flex flex-col break-words gap-2 border rounded-md p-4 justify-between"
 																>
 																	<div class="flex flex-col gap-2">
@@ -301,7 +306,7 @@
 																					<p class="text-sm break-words">
 																						{info}
 																					</p>
-																					{#if metadata.parsedData.fullSeason}
+																					{#if metadata.mediaType === 'tv' && metadata.parsedData.fullSeason}
 																						<Badge class="max-w-max" variant="outline">Full Season</Badge>
 																					{/if}
 																				{:else}
@@ -310,7 +315,13 @@
 																			{/each}
 																		</div>
 																	</div>
-																	<StreamActions url={stream.url} {addToRD} />
+																	<StreamActions
+																		url={stream.url}
+																		{addToRD}
+																		title={`${info.meta.name} (${info.meta.releaseInfo})`}
+																		type="series"
+																		season={video.season}
+																	/>
 																</div>
 															{/if}
 														{/each}

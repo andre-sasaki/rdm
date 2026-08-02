@@ -129,12 +129,12 @@ export const getFilenameMetadata = (filename: string) => {
 	switch (getMediaType(filename)) {
 		case 'tv':
 			return {
-				mediaType: 'tv',
+				mediaType: 'tv' as const,
 				parsedData: filenameParse(filename, true) as ParsedShow
 			};
 		case 'movie':
 			return {
-				mediaType: 'movie',
+				mediaType: 'movie' as const,
 				parsedData: filenameParse(filename) as ParsedMovie
 			};
 	}
