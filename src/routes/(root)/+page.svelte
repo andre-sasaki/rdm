@@ -39,7 +39,7 @@
 			userCode = data.data ? data.data.user_code : '';
 			deviceCode = data.data ? data.data.device_code : '';
 
-			navigator.clipboard.writeText(userCode);
+			navigator.clipboard?.writeText(userCode).catch(() => {});
 			pollingInterval = setInterval(pollForToken, 5000);
 		} catch (e) {
 			alert('Error getting user code from Real Debrid..');
