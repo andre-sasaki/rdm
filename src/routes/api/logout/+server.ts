@@ -4,18 +4,22 @@ export const GET = async ({ cookies }) => {
 	try {
 		cookies.set('accessToken', '', {
 			path: '/',
+			secure: false,
 			expires: new Date(0)
 		});
 		cookies.set('refreshToken', '', {
 			path: '/',
+			secure: false,
 			expires: new Date(0)
 		});
 		cookies.set('clientId', '', {
 			path: '/',
+			secure: false,
 			expires: new Date(0)
 		});
 		cookies.set('clientSecret', '', {
 			path: '/',
+			secure: false,
 			expires: new Date(0)
 		});
 

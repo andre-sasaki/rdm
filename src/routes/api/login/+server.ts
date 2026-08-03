@@ -24,6 +24,7 @@ export const POST = async ({ request, cookies }) => {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'strict',
+			secure: false,
 			maxAge: expiresIn
 		});
 
@@ -31,6 +32,7 @@ export const POST = async ({ request, cookies }) => {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'strict',
+			secure: false,
 			maxAge: 31536000
 		});
 
@@ -46,6 +48,7 @@ export const POST = async ({ request, cookies }) => {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'lax',
+			secure: false,
 			maxAge: 31536000
 		});
 
@@ -53,6 +56,7 @@ export const POST = async ({ request, cookies }) => {
 			path: '/',
 			httpOnly: true,
 			sameSite: 'strict',
+			secure: false,
 			maxAge: 31536000
 		});
 

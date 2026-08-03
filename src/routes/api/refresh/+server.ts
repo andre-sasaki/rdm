@@ -39,6 +39,7 @@ export const POST = async ({ cookies, fetch }) => {
 				path: '/',
 				httpOnly: true,
 				sameSite: 'strict',
+				secure: false,
 				maxAge: data.expires_in
 			});
 
