@@ -107,6 +107,165 @@
 
 	let getHashesLoading = false;
 	let foundHashes: string[] = [];
+	let downloadingFullSeason = false;
+
+	async function downloadFullSeason(info: any) {
+		const seasonVideos = videosData?.[currentSeason];
+		if (!seasonVideos || seasonVideos.length === 0) {
+			toast.error('No episodes found for this season');
+			return;
+		}
+
+		downloadingFullSeason = true;
+		try {
+			const firstVideo = seasonVideos[0];
+			const params = new URLSearchParams({
+				id: firstVideo.id,
+				type: 'series',
+				filters: get(filters).join(','),
+				debridOptions
+			});
+			const limitPerQuality = get(maxResultsPerQuality);
+			if (limitPerQuality) {
+				params.set('limitPerQuality', String(limitPerQuality));
+			}
+
+			const res = await fetch(`/api/app/torrents/streams?${params}`);
+			const json = await res.json();
+			const streams = json.data;
+
+			const fullSeasonCandidates = (streams?.streams ?? []).filter((stream: any) => {
+				const firstLine = stream.title.split('\n')[0];
+				const metadata = getFilenameMetadata(firstLine);
+				return metadata.mediaType === 'tv' && metadata.parsedData.fullSeason;
+			});
+
+			if (fullSeasonCandidates.length === 0) {
+				toast.error('No full season release found');
+				return;
+			}
+
+			const videoExtensions = ['.mkv', '.mp4', '.avi', '.ts', '.m2ts', '.mov', '.wmv', '.flv', '.webm'];
+			const title = `${info.meta.name} (${info.meta.releaseInfo})`;
+
+			for (const candidate of fullSeasonCandidates) {
+				const hash = getHash(candidate.url);
+				if (!hash) continue;
+
+				const addMagnetRes = await fetch('/api/app/torrents/addMagnet', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ hash })
+				});
+				const addMagnetResp = await addMagnetRes.json();
+				if (!addMagnetResp.success) continue;
+
+				const torrentId = addMagnetResp.id;
+
+				let torrentInfo: any;
+				for (let attempt = 0; attempt < 20; attempt++) {
+					const infoRes = await fetch(`/api/app/torrents/${torrentId}`);
+					const infoResp = await infoRes.json();
+					torrentInfo = infoResp.data;
+					if (torrentInfo?.files?.length > 0) {
+						break;
+					}
+					await new Promise((resolve) => setTimeout(resolve, 2000));
+				}
+
+				const videoFiles = (torrentInfo?.files ?? []).filter((file: any) =>
+					videoExtensions.some((ext) => file.path.toLowerCase().endsWith(ext))
+				);
+
+				if (videoFiles.length === 0) {
+					await fetch(`/api/app/torrents/${torrentId}`, { method: 'DELETE' });
+					continue;
+				}
+
+				const selectRes = await fetch(`/api/app/torrents/${torrentId}/selectFiles`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ fileIds: videoFiles.map((file: any) => file.id) })
+				});
+				const selectResp = await selectRes.json();
+				if (!selectResp.success) {
+					await fetch(`/api/app/torrents/${torrentId}`, { method: 'DELETE' });
+					continue;
+				}
+
+				let downloaded = false;
+				for (let attempt = 0; attempt < 40; attempt++) {
+					const infoRes = await fetch(`/api/app/torrents/${torrentId}`);
+					const infoResp = await infoRes.json();
+					torrentInfo = infoResp.data;
+					if (torrentInfo?.status === 'downloaded') {
+						downloaded = true;
+						break;
+					}
+					await new Promise((resolve) => setTimeout(resolve, 3000));
+				}
+
+				if (!downloaded) {
+					await fetch(`/api/app/torrents/${torrentId}`, { method: 'DELETE' });
+					continue;
+				}
+
+				const links: string[] = torrentInfo.links ?? [];
+				if (links.length === 0) {
+					await fetch(`/api/app/torrents/${torrentId}`, { method: 'DELETE' });
+					continue;
+				}
+
+				let succeeded = 0;
+				let failed = 0;
+
+				for (const link of links) {
+					const unrestrictRes = await fetch('/api/app/unrestrict', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ link })
+					});
+					const unrestrictResp = await unrestrictRes.json();
+
+					if (!unrestrictResp.success) {
+						failed++;
+						await new Promise((resolve) => setTimeout(resolve, 200));
+						continue;
+					}
+
+					const taskRes = await fetch('/api/app/synology/addTask', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							url: unrestrictResp.data.download,
+							type: 'series',
+							title,
+							season: currentSeason
+						})
+					});
+					const taskResp = await taskRes.json();
+					if (taskResp.success) {
+						succeeded++;
+					} else {
+						failed++;
+					}
+
+					await new Promise((resolve) => setTimeout(resolve, 200));
+				}
+
+				if (failed > 0) {
+					toast.error(`Sent ${succeeded} episodes, ${failed} failed`);
+				} else {
+					toast.success(`Sent ${succeeded} episodes to Download Station`);
+				}
+				return;
+			}
+
+			toast.error('No usable (non-archive) full season release found');
+		} finally {
+			downloadingFullSeason = false;
+		}
+	}
 
 	$: if (foundHashes.length > 0) {
 		toast.success(`Found ${foundHashes.length} torrents already in RD`);
@@ -200,36 +359,48 @@
 				{#if info.meta.videos}
 					{organizeVideos(info.meta.videos)}
 					{#if videosData}
-						<Select.Root
-							onSelectedChange={(selected) => {
-								currentSeason = Number(selected?.value);
-							}}
-							selected={{
-								value: Object.keys(videosData)[0],
-								label: `Season ${Object.keys(videosData)[0]}`
-							}}
-						>
-							<Select.Trigger class="w-full md:max-w-[180px]">
-								<Select.Value placeholder="Select season" />
-							</Select.Trigger>
-							{#if Object.keys(videosData).length > 7}
-								<Select.Content class="h-64 overflow-y-scroll">
-									<Select.Label>Seasons</Select.Label>
-									{#each Object.keys(videosData) as season}
-										<Select.Item value={season} label="Season {season}">Season {season}</Select.Item
-										>
-									{/each}
-								</Select.Content>
-							{:else}
-								<Select.Content>
-									<Select.Label>Seasons</Select.Label>
-									{#each Object.keys(videosData) as season}
-										<Select.Item value={season} label="Season {season}">Season {season}</Select.Item
-										>
-									{/each}
-								</Select.Content>
-							{/if}
-						</Select.Root>
+						<div class="flex flex-col md:flex-row items-start md:items-center gap-2">
+							<Select.Root
+								onSelectedChange={(selected) => {
+									currentSeason = Number(selected?.value);
+								}}
+								selected={{
+									value: Object.keys(videosData)[0],
+									label: `Season ${Object.keys(videosData)[0]}`
+								}}
+							>
+								<Select.Trigger class="w-full md:max-w-[180px]">
+									<Select.Value placeholder="Select season" />
+								</Select.Trigger>
+								{#if Object.keys(videosData).length > 7}
+									<Select.Content class="h-64 overflow-y-scroll">
+										<Select.Label>Seasons</Select.Label>
+										{#each Object.keys(videosData) as season}
+											<Select.Item value={season} label="Season {season}">Season {season}</Select.Item
+											>
+										{/each}
+									</Select.Content>
+								{:else}
+									<Select.Content>
+										<Select.Label>Seasons</Select.Label>
+										{#each Object.keys(videosData) as season}
+											<Select.Item value={season} label="Season {season}">Season {season}</Select.Item
+											>
+										{/each}
+									</Select.Content>
+								{/if}
+							</Select.Root>
+							<Button
+								disabled={downloadingFullSeason}
+								variant="outline"
+								on:click={() => downloadFullSeason(info)}
+							>
+								{#if downloadingFullSeason}
+									<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+								{/if}
+								Download Full Season
+							</Button>
+						</div>
 
 						{#if currentSeason === 0}
 							<p class="text-sm text-muted-foreground">These are special episodes</p>

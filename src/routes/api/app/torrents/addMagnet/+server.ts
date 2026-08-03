@@ -4,6 +4,7 @@ import type { AddMagnetResponse, APIResponse } from '$lib/app/types';
 interface RequestBody {
 	hash: string;
 	selectedFilesId: number[];
+	selectAll?: boolean;
 }
 
 export const POST = async ({ fetch, cookies, request }) => {
@@ -12,6 +13,7 @@ export const POST = async ({ fetch, cookies, request }) => {
 	const body: RequestBody = await request.json();
 	const hash = body?.hash;
 	const selectedFilesId = body?.selectedFilesId;
+	const selectAll = body?.selectAll ?? false;
 
 	try {
 		if (!refreshToken) {
@@ -36,22 +38,6 @@ export const POST = async ({ fetch, cookies, request }) => {
 					status: 400,
 					success: false,
 					error: 'Bad Request. No hash provided'
-				} as APIResponse),
-				{
-					status: 400,
-					headers: {
-						'content-type': 'application/json'
-					}
-				}
-			);
-		}
-
-		if (!selectedFilesId) {
-			return new Response(
-				JSON.stringify({
-					status: 400,
-					success: false,
-					error: 'Bad Request. No selectedFilesId provided'
 				} as APIResponse),
 				{
 					status: 400,
@@ -117,13 +103,30 @@ export const POST = async ({ fetch, cookies, request }) => {
 
 		const magnetData: AddMagnetResponse = await magnetRes.json();
 
+		if (!selectAll && !selectedFilesId) {
+			return new Response(
+				JSON.stringify({
+					status: 201,
+					success: true,
+					message: 'Magnet added, awaiting file selection',
+					id: magnetData.id
+				} as APIResponse),
+				{
+					status: 200,
+					headers: {
+						'content-type': 'application/json'
+					}
+				}
+			);
+		}
+
 		const torrentRes = await fetch(`${PUBLIC_BASE_URI}/torrents/selectFiles/${magnetData.id}`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
 				Authorization: `Bearer ${accessToken}`
 			},
-			body: `files=${selectedFilesId.join(',')}`
+			body: `files=${selectAll ? 'all' : selectedFilesId.join(',')}`
 		});
 
 		switch (torrentRes.status) {
