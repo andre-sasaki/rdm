@@ -5,17 +5,34 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      target:
+        description: Deploy target
+        type: choice
+        default: nas
+        options:
+          - nas
+          - mac-mini
 
 jobs:
   build-and-deploy:
-    # Runs on a self-hosted runner on the NAS itself, since GitHub-hosted
-    # runners can't reach hydrogen.local. The runner has access to the
-    # host's Docker socket, so it builds and redeploys directly - no
-    # registry or webhook needed.
-    runs-on: self-hosted
+    # Runs on a self-hosted runner on the target host itself, since
+    # GitHub-hosted runners can't reach the local network. Each runner
+    # has access to its host's Docker socket, so it builds and redeploys
+    # directly - no registry or webhook needed. Plain `push` (no manual
+    # target picked) always goes to the NAS.
+    runs-on: [self-hosted, "${{ inputs.target || 'nas' }}"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # Host-specific secrets (e.g. ORIGIN) live in a .env file kept
+          # outside the checkout dir - don't let checkout's pre-clean wipe it.
+          clean: false
 
       - name: Build and deploy
-        run: docker compose -p rdm -f docker-compose.yml up -d --build
+        env:
+          # Host-specific .env (ORIGIN, etc) lives outside the checkout dir
+          # on each runner host, keyed by target.
+          ENV_FILE: ${{ inputs.target == 'mac-mini' && '/opt/rdm-runner/rdm.env' || '/tmp/runner/work/rdm.env' }}
+        run: docker compose -p rdm -f docker-compose.yml --env-file "$ENV_FILE" up -d --build
