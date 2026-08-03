@@ -5,14 +5,23 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      target:
+        description: Deploy target
+        type: choice
+        default: nas
+        options:
+          - nas
+          - mac-mini
 
 jobs:
   build-and-deploy:
-    # Runs on a self-hosted runner on the NAS itself, since GitHub-hosted
-    # runners can't reach hydrogen.local. The runner has access to the
-    # host's Docker socket, so it builds and redeploys directly - no
-    # registry or webhook needed.
-    runs-on: self-hosted
+    # Runs on a self-hosted runner on the target host itself, since
+    # GitHub-hosted runners can't reach the local network. Each runner
+    # has access to its host's Docker socket, so it builds and redeploys
+    # directly - no registry or webhook needed. Plain `push` (no manual
+    # target picked) always goes to the NAS.
+    runs-on: [self-hosted, "${{ inputs.target || 'nas' }}"]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
