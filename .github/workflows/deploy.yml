@@ -31,4 +31,8 @@ jobs:
           clean: false
 
       - name: Build and deploy
-        run: docker compose -p rdm -f docker-compose.yml --env-file "$HOME/rdm.env" up -d --build
+        env:
+          # Host-specific .env (ORIGIN, etc) lives outside the checkout dir
+          # on each runner host, keyed by target.
+          ENV_FILE: ${{ inputs.target == 'mac-mini' && '/opt/rdm-runner/rdm.env' || '/volume1/docker/rdm-runner/rdm.env' }}
+        run: docker compose -p rdm -f docker-compose.yml --env-file "$ENV_FILE" up -d --build
